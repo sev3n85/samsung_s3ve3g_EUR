@@ -604,6 +604,7 @@ static void iommu_poll_ppr_log(struct amd_iommu *iommu)
 		/* Avoid memcpy function-call overhead */
 		entry[0] = raw[0];
 		entry[1] = raw[1];
+<<<<<<< HEAD
 
 		/*
 		 * To detect the hardware bug we need to clear the entry
@@ -611,6 +612,15 @@ static void iommu_poll_ppr_log(struct amd_iommu *iommu)
 		 */
 		raw[0] = raw[1] = 0UL;
 
+=======
+
+		/*
+		 * To detect the hardware bug we need to clear the entry
+		 * back to zero.
+		 */
+		raw[0] = raw[1] = 0UL;
+
+>>>>>>> 3e74387... iommu/amd: Fix deadlock in ppr-handling error path
 		/* Update head pointer of hardware ring-buffer */
 		head = (head + PPR_ENTRY_SIZE) % PPR_LOG_SIZE;
 		writel(head, iommu->mmio_base + MMIO_PPR_HEAD_OFFSET);
