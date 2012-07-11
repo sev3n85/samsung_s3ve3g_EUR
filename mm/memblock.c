@@ -211,6 +211,12 @@ static int __init_memblock memblock_double_array(struct memblock_type *type,
 	old_alloc_size = PAGE_ALIGN(old_size);
 	new_alloc_size = PAGE_ALIGN(new_size);
 
+	/* Retrieve the slab flag */
+	if (type == &memblock.memory)
+		in_slab = &memblock_memory_in_slab;
+	else
+		in_slab = &memblock_reserved_in_slab;
+
 	/* Try to find some space for it.
 	 *
 	 * WARNING: We assume that either slab_is_available() and we use it or
