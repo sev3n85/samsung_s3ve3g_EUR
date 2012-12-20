@@ -421,6 +421,16 @@ static int __init dmi_present(const char __iomem *p)
 		dmi_base = (buf[11] << 24) | (buf[10] << 16) |
 			(buf[9] << 8) | buf[8];
 
+		/*
+		 * DMI version 0.0 means that the real version is taken from
+		 * the SMBIOS version, which we don't know at this point.
+		 */
+		dmi_ver = (buf[14] & 0xf0) << 4 | (buf[14] & 0x0f);
+		if (buf[14] != 0)
+			printk(KERN_INFO "DMI %d.%d present.\n",
+			       buf[14] >> 4, buf[14] & 0xF);
+		else
+			printk(KERN_INFO "DMI present.\n");
 		if (dmi_walk_early(dmi_decode) == 0) {
 			if (dmi_ver)
 				pr_info("SMBIOS %d.%d present.\n",
