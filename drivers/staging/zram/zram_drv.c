@@ -863,6 +863,7 @@ static int create_device(struct zram *zram, int device_id)
 	zram->disk = alloc_disk(1);
 	if (!zram->disk) {
 		pr_warn("Error allocating disk structure for device %d\n",
+		pr_warning("Error allocating disk structure for device %d\n",
 			device_id);
 		goto out_free_queue;
 	}
@@ -893,6 +894,7 @@ static int create_device(struct zram *zram, int device_id)
 				&zram_disk_attr_group);
 	if (ret < 0) {
 		pr_warn("Error creating sysfs group");
+		pr_warning("Error creating sysfs group");
 		goto out_free_disk;
 	}
 
