@@ -295,7 +295,8 @@ static void cpufreq_interactive_timer_resched(
 static void cpufreq_interactive_timer_start(int cpu)
 {
 	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
-	unsigned long expires = jiffies + usecs_to_jiffies(timer_rate);
+	unsigned long expires = jiffies +
+		usecs_to_jiffies(timer_rate);
 	unsigned long flags;
 
 	pcpu->cpu_timer.expires = expires;
@@ -1838,19 +1839,21 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			/* update target_freq firstly */
 			if (policy->max < pcpu->target_freq)
 				pcpu->target_freq = policy->max;
-			else if (policy->min > pcpu->target_freq){
+			else if (policy->min > pcpu->target_freq)
 				pcpu->target_freq = policy->min;
 
 			/* Reschedule timer.
-+			 * The governor needs more time to evaluate
-+			 * the load after changing policy parameters
+			 * Delete the timers, else the timer callback may
+			 * return without re-arm the timer when failed
+			 * acquire the semaphore. This race may cause timer
+			 * stopped unexpectedly.
 			 */
-				del_timer_sync(&pcpu->cpu_timer);
-				del_timer_sync(&pcpu->cpu_slack_timer);
-				cpufreq_interactive_timer_start(j);
-			}
-			pcpu->minfreq_boost = 1;
+			del_timer_sync(&pcpu->cpu_timer);
+			del_timer_sync(&pcpu->cpu_slack_timer);
+			cpufreq_interactive_timer_start(j);
 			up_write(&pcpu->enable_sem);
+
+			pcpu->limits_changed = true;
 		}
 		break;
 	}
