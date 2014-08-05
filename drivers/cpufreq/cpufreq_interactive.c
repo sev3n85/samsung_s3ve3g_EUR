@@ -58,7 +58,6 @@ struct cpufreq_interactive_cpuinfo {
 	u64 hispeed_validate_time;
 	struct rw_semaphore enable_sem;
 	int governor_enabled;
-	int prev_load;
 };
 
 static DEFINE_PER_CPU(struct cpufreq_interactive_cpuinfo, cpuinfo);
@@ -127,85 +126,6 @@ static u64 boostpulse_endtime;
 static int timer_slack_val = DEFAULT_TIMER_SLACK;
 
 static bool io_is_busy;
-
-#ifdef CONFIG_MODE_AUTO_CHANGE
-struct cpufreq_loadinfo {
-	unsigned int load;
-	unsigned int freq;
-	u64 timestamp;
-};
-
-static DEFINE_PER_CPU(struct cpufreq_loadinfo, loadinfo);
-
-static spinlock_t mode_lock;
-
-#define MULTI_MODE	2
-#define SINGLE_MODE	1
-#define NO_MODE	0
-
-static unsigned int mode = 0;
-static unsigned int enforced_mode = 0;
-static u64 mode_check_timestamp = 0;
-
-#define DEFAULT_MULTI_ENTER_TIME (4 * DEFAULT_TIMER_RATE)
-static unsigned long multi_enter_time = DEFAULT_MULTI_ENTER_TIME;
-static unsigned long time_in_multi_enter = 0;
-static unsigned int multi_enter_load = 4 * DEFAULT_TARGET_LOAD;
-
-#define DEFAULT_MULTI_EXIT_TIME (16 * DEFAULT_TIMER_RATE)
-static unsigned long multi_exit_time = DEFAULT_MULTI_EXIT_TIME;
-static unsigned long time_in_multi_exit = 0;
-static unsigned int multi_exit_load = 4 * DEFAULT_TARGET_LOAD;
-
-#define DEFAULT_SINGLE_ENTER_TIME (8 * DEFAULT_TIMER_RATE)
-static unsigned long single_enter_time = DEFAULT_SINGLE_ENTER_TIME;
-static unsigned long time_in_single_enter = 0;
-static unsigned int single_enter_load = DEFAULT_TARGET_LOAD;
-
-#define DEFAULT_SINGLE_EXIT_TIME (4 * DEFAULT_TIMER_RATE)
-static unsigned long single_exit_time = DEFAULT_SINGLE_EXIT_TIME;
-static unsigned long time_in_single_exit = 0;
-static unsigned int single_exit_load = DEFAULT_TARGET_LOAD;
-
-static unsigned int param_index = 0;
-static unsigned int cur_param_index = 0;
-
-#define MAX_PARAM_SET 4 /* ((MULTI_MODE | SINGLE_MODE | NO_MODE) + 1) */
-static unsigned int hispeed_freq_set[MAX_PARAM_SET];
-static unsigned long go_hispeed_load_set[MAX_PARAM_SET];
-static unsigned int *target_loads_set[MAX_PARAM_SET];
-static int ntarget_loads_set[MAX_PARAM_SET];
-static unsigned long min_sample_time_set[MAX_PARAM_SET];
-static unsigned long timer_rate_set[MAX_PARAM_SET];
-static unsigned int *above_hispeed_delay_set[MAX_PARAM_SET];
-static int nabove_hispeed_delay_set[MAX_PARAM_SET];
-static unsigned int sampling_down_factor_set[MAX_PARAM_SET];
-#endif /* CONFIG_MODE_AUTO_CHANGE */
-
-/*
- * If the max load among other CPUs is higher than up_threshold_any_cpu_load
- * and if the highest frequency among the other CPUs is higher than
- * up_threshold_any_cpu_freq then do not let the frequency to drop below
- * sync_freq
- */
-static unsigned int up_threshold_any_cpu_load;
-static unsigned int sync_freq;
-static unsigned int up_threshold_any_cpu_freq;
-
-static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
-		unsigned int event);
-
-#define DYN_DEFER (1)
-		
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_INTERACTIVE
-static
-#endif
-struct cpufreq_governor cpufreq_gov_interactive = {
-	.name = "interactive",
-	.governor = cpufreq_governor_interactive,
-	.max_transition_latency = 10000000,
-	.owner = THIS_MODULE,
-};
 
 static inline cputime64_t get_cpu_idle_time_jiffy(unsigned int cpu,
 						  cputime64_t *wall)
@@ -621,6 +541,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	unsigned long flags;
 	bool boosted;
 	unsigned long mod_min_sample_time;
+<<<<<<< HEAD
 	int i, max_load;
 	unsigned int max_freq;
 	struct cpufreq_interactive_cpuinfo *picpu;
@@ -632,6 +553,11 @@ static void cpufreq_interactive_timer(unsigned long data)
 			cpufreq_interactive_timer_resched(pcpu);
  		return;
 	}
+=======
+
+	if (!down_read_trylock(&pcpu->enable_sem))
+		return;
+>>>>>>> 69316b1... cpufreq: interactive: Revert sync freq feature
 	if (!pcpu->governor_enabled)
 		goto exit;
 
@@ -649,7 +575,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 	do_div(cputime_speedadj, delta_time);
 	loadadjfreq = (unsigned int)cputime_speedadj * 100;
 	cpu_load = loadadjfreq / pcpu->target_freq;
-	pcpu->prev_load = cpu_load;
 	boosted = boost_val || now < boostpulse_endtime;
 
 #ifdef CONFIG_SEC_PM
@@ -667,6 +592,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 		}
 	} else {
 		new_freq = choose_freq(pcpu, loadadjfreq);
+<<<<<<< HEAD
 
 		if (sync_freq && new_freq < sync_freq) {
 
@@ -688,6 +614,8 @@ static void cpufreq_interactive_timer(unsigned long data)
 				max_load >= up_threshold_any_cpu_load)
 				new_freq = sync_freq;
 		}
+=======
+>>>>>>> 69316b1... cpufreq: interactive: Revert sync freq feature
 	}
 
 	if (pcpu->target_freq >= hispeed_freq &&
@@ -1475,6 +1403,7 @@ static ssize_t store_io_is_busy(struct kobject *kobj,
 static struct global_attr io_is_busy_attr = __ATTR(io_is_busy, 0644,
 		show_io_is_busy, store_io_is_busy);
 
+<<<<<<< HEAD
 static ssize_t show_sync_freq(struct kobject *kobj,
 			struct attribute *attr, char *buf)
 {
@@ -1637,6 +1566,8 @@ time(single_enter_time, single_enter_time_attr);
 time(single_exit_time, single_exit_time_attr);
 
 #endif
+=======
+>>>>>>> 69316b1... cpufreq: interactive: Revert sync freq feature
 static struct attribute *interactive_attributes[] = {
 	&target_loads_attr.attr,
 	&above_hispeed_delay_attr.attr,
@@ -1650,6 +1581,7 @@ static struct attribute *interactive_attributes[] = {
 	&boostpulse_duration.attr,
 	&io_is_busy_attr.attr,
 	&sampling_down_factor_attr.attr,
+<<<<<<< HEAD
 	&sync_freq_attr.attr,
 	&up_threshold_any_cpu_load_attr.attr,
 	&up_threshold_any_cpu_freq_attr.attr,
@@ -1666,6 +1598,8 @@ static struct attribute *interactive_attributes[] = {
 	&single_enter_time_attr.attr,
 	&single_exit_time_attr.attr,
 #endif
+=======
+>>>>>>> 69316b1... cpufreq: interactive: Revert sync freq feature
 	NULL,
 };
 
