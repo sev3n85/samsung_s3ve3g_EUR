@@ -37,9 +37,6 @@
 #include <asm/mmu_context.h>
 
 #include "internal.h"
-#ifdef CONFIG_SDCARD_FS
-#include "../fs/sdcardfs/sdcardfs.h"
-#endif
 
 #ifndef arch_mmap_check
 #define arch_mmap_check(addr, len, flags)	(0)
@@ -972,10 +969,8 @@ static unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 	int error;
 	unsigned long reqprot = prot;
 
-#ifdef CONFIG_SDCARD_FS
-	if (file && (file->f_path.mnt->mnt_sb->s_magic == SDCARDFS_SUPER_MAGIC))
-		file = sdcardfs_lower_file(file);
-#endif
+	while (file && (file->f_mode & FMODE_NONMAPPABLE))
+		file = file->f_op->get_lower_file(file);
 
 	/*
 	 * Does the application expect PROT_READ to imply PROT_EXEC?
@@ -1403,7 +1398,7 @@ munmap_back:
 				|| strstr(pathname, "dalvik-mark-stack") != NULL
 				|| strstr(pathname, "dalvik-card-table") != NULL) {
 			//printk("PROC %s\tFILE %s\tSTART %lx\tLEN %lx\n", current->comm, pathname, addr, len);
-			tima_send_cmd2(addr, len, 0x3f830221);
+			tima_send_cmd2(addr, len, 0x30);
 		}
 
 		/* do something here with pathname */
