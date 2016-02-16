@@ -193,6 +193,7 @@ static int __init_memblock memblock_double_array(struct memblock_type *type,
 	phys_addr_t old_alloc_size, new_alloc_size;
 	phys_addr_t old_size, new_size, addr;
 	int use_slab = slab_is_available();
+	int *in_slab;
 
 	/* We don't allow resizing until we know about the reserved regions
 	 * of memory that aren't suitable for allocation
