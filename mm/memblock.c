@@ -37,6 +37,8 @@ struct memblock memblock __initdata_memblock = {
 
 int memblock_debug __initdata_memblock;
 static int memblock_can_resize __initdata_memblock;
+static int memblock_memory_in_slab __initdata_memblock = 0;
+static int memblock_reserved_in_slab __initdata_memblock = 0;
 
 /* inline so we don't get a warning when pr_debug is compiled out */
 static inline const char *memblock_type_name(struct memblock_type *type)
@@ -211,6 +213,12 @@ static int __init_memblock memblock_double_array(struct memblock_type *type,
 	old_alloc_size = PAGE_ALIGN(old_size);
 	new_alloc_size = PAGE_ALIGN(new_size);
 
+	/* Retrieve the slab flag */
+	if (type == &memblock.memory)
+		in_slab = &memblock_memory_in_slab;
+	else
+		in_slab = &memblock_reserved_in_slab;
+
 	/* Try to find some space for it.
 	 *
 	 * WARNING: We assume that either slab_is_available() and we use it or
@@ -274,14 +282,8 @@ static int __init_memblock memblock_double_array(struct memblock_type *type,
 	if (!use_slab)
 		BUG_ON(memblock_reserve(addr, new_alloc_size));
 
-	/* If the array wasn't our static init one, then free it. We only do
-	 * that before SLAB is available as later on, we don't know whether
-	 * to use kfree or free_bootmem_pages(). Shouldn't be a big deal
-	 * anyways
-	 */
-	if (old_array != memblock_memory_init_regions &&
-	    old_array != memblock_reserved_init_regions)
-		memblock_free(__pa(old_array), old_size);
+	/* Update slab flag */
+	*in_slab = use_slab;
 
 	return 0;
 }
@@ -898,12 +900,6 @@ int __init_memblock memblock_is_region_memory(phys_addr_t base, phys_addr_t size
 	return memblock.memory.regions[idx].base <= base &&
 		(memblock.memory.regions[idx].base +
 		 memblock.memory.regions[idx].size) >= end;
-}
-
-int __init_memblock memblock_overlaps_memory(phys_addr_t base, phys_addr_t size)
-{
-	memblock_cap_size(base, &size);
-	return memblock_overlaps_region(&memblock.memory, base, size) >= 0;
 }
 
 int __init_memblock memblock_is_region_reserved(phys_addr_t base, phys_addr_t size)
