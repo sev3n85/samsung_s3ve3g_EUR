@@ -1148,12 +1148,15 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 
 	device_unlock(dev);
 
+ Complete:
 	complete_all(&dev->power.completion);
 
-	if (error)
+	if (error) {
+		pm_runtime_put_sync(dev);
 		async_error = error;
-	else if (dev->power.is_suspended)
+	} else if (dev->power.is_suspended) {
 		__pm_runtime_disable(dev, false);
+	}
 
 	return error;
 }
