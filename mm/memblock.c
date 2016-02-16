@@ -903,10 +903,10 @@ int __init_memblock memblock_is_region_memory(phys_addr_t base, phys_addr_t size
 }
 
 int __init_memblock memblock_overlaps_memory(phys_addr_t base, phys_addr_t size)		
-	{		
-		memblock_cap_size(base, &size);		
-		return memblock_overlaps_region(&memblock.memory, base, size) >= 0;		
-	}
+{		
+	memblock_cap_size(base, &size);		
+	return memblock_overlaps_region(&memblock.memory, base, size) >= 0;		
+}
 
 int __init_memblock memblock_is_region_reserved(phys_addr_t base, phys_addr_t size)
 {
