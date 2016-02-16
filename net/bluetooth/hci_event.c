@@ -3734,3 +3734,4 @@ void hci_si_event(struct hci_dev *hdev, int type, int dlen, void *data)
 	hci_send_to_sock(hdev, skb, NULL);
 	kfree_skb(skb);
 }
+
