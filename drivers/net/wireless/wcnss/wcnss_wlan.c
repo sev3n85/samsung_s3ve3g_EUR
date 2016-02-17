@@ -934,10 +934,8 @@ void wcnss_log_debug_regs_on_bite(void)
 #ifdef CONFIG_WCNSS_IRIS_REGISTER_DUMP
 			if (wcnss_get_mux_control())
 				wcnss_log_iris_regs();
-#endif
 		} else {
 			pr_err("clock frequency is zero, cannot access PMU or other registers\n");
-#ifdef CONFIG_WCNSS_IRIS_REGISTER_DUMP
 			wcnss_log_iris_regs();
 #endif
 		}

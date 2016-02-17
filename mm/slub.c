@@ -1388,7 +1388,7 @@ static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
 	setup_object(s, page, last);
 	set_freepointer(s, last, NULL);
 #ifdef CONFIG_TIMA_RKP_30
-	tima_send_cmd3(page_to_phys(page), compound_order(page), 1, 0x3f826221);
+	tima_send_cmd3(page_to_phys(page), compound_order(page), 1, 0x26);
 #endif
 	page->freelist = start;
 	page->inuse = page->objects;
@@ -1443,7 +1443,7 @@ static void rcu_free_slab(struct rcu_head *h)
 static void free_slab(struct kmem_cache *s, struct page *page)
 {
 #ifdef CONFIG_TIMA_RKP_30
-	tima_send_cmd3(page_to_phys(page), compound_order(page), 0, 0x3f826221);
+	tima_send_cmd3(page_to_phys(page), compound_order(page), 0, 0x26);
 #endif
 	if (unlikely(s->flags & SLAB_DESTROY_BY_RCU)) {
 		struct rcu_head *head;
@@ -1522,15 +1522,19 @@ static inline void *acquire_slab(struct kmem_cache *s,
 		freelist = page->freelist;
 		counters = page->counters;
 		new.counters = counters;
-		if (mode)
+		if (mode) {
 			new.inuse = page->objects;
+			new.freelist = NULL;
+		} else {
+			new.freelist = freelist;
+		}
 
 		VM_BUG_ON(new.frozen);
 		new.frozen = 1;
 
 	} while (!__cmpxchg_double_slab(s, page,
 			freelist, counters,
-			NULL, new.counters,
+			new.freelist, new.counters,
 			"lock and freeze"));
 
 	remove_partial(n, page);
@@ -1572,7 +1576,6 @@ static void *get_partial_node(struct kmem_cache *s,
 			object = t;
 			available =  page->objects - page->inuse;
 		} else {
-			page->freelist = t;
 			available = put_cpu_partial(s, page, 0);
 			stat(s, CPU_PARTIAL_NODE);
 		}
