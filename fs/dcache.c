@@ -2996,13 +2996,6 @@ ascend:
 	return;
 
 rename_retry:
-<<<<<<< HEAD
-=======
-	spin_unlock(&this_parent->d_lock);
-	rcu_read_unlock();
-	if (locked)
-		goto again;
->>>>>>> a91da0b... deal with deadlock in d_walk()
 	locked = 1;
 	write_seqlock(&rename_lock);
 	goto again;
