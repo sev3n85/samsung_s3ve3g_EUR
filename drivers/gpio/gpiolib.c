@@ -904,6 +904,8 @@ void gpio_unexport(unsigned gpio)
 
 	mutex_unlock(&sysfs_lock);
 	if (dev) {
+		device_remove_file(dev, &dev_attr_edge);
+		device_remove_file(dev, &dev_attr_direction);
 		device_unregister(dev);
 		put_device(dev);
 	}
