@@ -133,7 +133,7 @@ static bool io_is_busy;
  * use_sched_load is true, this flag is ignored and windows
  * will always be aligned.
  */
-static bool align_windows;
+static bool align_windows = true;
 
 /*
  * Stay at max freq for at least max_freq_hysteresis before dropping
