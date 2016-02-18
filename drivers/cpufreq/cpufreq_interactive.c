@@ -188,9 +188,9 @@ static u64 round_to_nw_start(u64 jif)
 	return (jif + 1) * step;
 }
 
-static void cpufreq_interactive_timer_resched(unsigned long cpu)
+static void cpufreq_interactive_timer_resched(
+	struct cpufreq_interactive_cpuinfo *pcpu)
 {
-	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
 	u64 expires;
 	unsigned long flags;
 
@@ -201,15 +201,11 @@ static void cpufreq_interactive_timer_resched(unsigned long cpu)
 	pcpu->cputime_speedadj = 0;
 	pcpu->cputime_speedadj_timestamp = pcpu->time_in_idle_timestamp;
 	expires = round_to_nw_start(pcpu->last_evaluated_jiffy);
-	del_timer(&pcpu->cpu_timer);
-	pcpu->cpu_timer.expires = expires;
-	add_timer_on(&pcpu->cpu_timer, cpu);
+	mod_timer_pinned(&pcpu->cpu_timer, expires);
 
 	if (timer_slack_val >= 0 && pcpu->target_freq > pcpu->policy->min) {
 		expires += usecs_to_jiffies(timer_slack_val);
-		del_timer(&pcpu->cpu_slack_timer);
-		pcpu->cpu_slack_timer.expires = expires;
-		add_timer_on(&pcpu->cpu_slack_timer, cpu);
+		mod_timer_pinned(&pcpu->cpu_slack_timer, expires);
 	}
 
 	spin_unlock_irqrestore(&pcpu->load_lock, flags);
@@ -225,7 +221,6 @@ static void cpufreq_interactive_timer_start(int cpu)
 	u64 expires = round_to_nw_start(pcpu->last_evaluated_jiffy);
 	unsigned long flags;
 
-	spin_lock_irqsave(&pcpu->load_lock, flags);
 	pcpu->cpu_timer.expires = expires;
 	del_timer_sync(&pcpu->cpu_timer);
 	add_timer_on(&pcpu->cpu_timer, cpu);
@@ -236,6 +231,7 @@ static void cpufreq_interactive_timer_start(int cpu)
 		add_timer_on(&pcpu->cpu_slack_timer, cpu);
 	}
 
+	spin_lock_irqsave(&pcpu->load_lock, flags);
 	pcpu->time_in_idle =
 		get_cpu_idle_time(cpu, &pcpu->time_in_idle_timestamp);
 	pcpu->cputime_speedadj = 0;
@@ -543,9 +539,23 @@ static void cpufreq_interactive_timer(unsigned long data)
 	unsigned long flags;
 	bool boosted;
 	unsigned long mod_min_sample_time;
+<<<<<<< HEAD
+	int i, max_load;
+	unsigned int max_freq;
+	struct cpufreq_interactive_cpuinfo *picpu;
+#ifdef CONFIG_MODE_AUTO_CHANGE
+	unsigned int new_mode;
+#endif
+	if (!down_read_trylock(&pcpu->enable_sem)) {
+		if (!timer_pending(&pcpu->cpu_timer))
+			cpufreq_interactive_timer_resched(pcpu);
+ 		return;
+	}
+=======
 
 	if (!down_read_trylock(&pcpu->enable_sem))
 		return;
+>>>>>>> 69316b1... cpufreq: interactive: Revert sync freq feature
 	if (!pcpu->governor_enabled)
 		goto exit;
 
@@ -580,6 +590,30 @@ static void cpufreq_interactive_timer(unsigned long data)
 		}
 	} else {
 		new_freq = choose_freq(pcpu, loadadjfreq);
+<<<<<<< HEAD
+
+		if (sync_freq && new_freq < sync_freq) {
+
+			max_load = 0;
+			max_freq = 0;
+
+			for_each_online_cpu(i) {
+				picpu = &per_cpu(cpuinfo, i);
+
+				if (i == data || picpu->prev_load <
+						up_threshold_any_cpu_load)
+					continue;
+
+				max_load = max(max_load, picpu->prev_load);
+				max_freq = max(max_freq, picpu->policy->cur);
+			}
+
+			if (max_freq > up_threshold_any_cpu_freq &&
+				max_load >= up_threshold_any_cpu_load)
+				new_freq = sync_freq;
+		}
+=======
+>>>>>>> 69316b1... cpufreq: interactive: Revert sync freq feature
 	}
 
 	if (pcpu->target_freq >= hispeed_freq &&
@@ -670,7 +704,7 @@ rearm_if_notmax:
 
 rearm:
 	if (!timer_pending(&pcpu->cpu_timer))
-		cpufreq_interactive_timer_resched(data);
+		cpufreq_interactive_timer_resched(pcpu);
 
 exit:
 	up_read(&pcpu->enable_sem);
@@ -703,8 +737,15 @@ static void cpufreq_interactive_idle_start(void)
 		 * the CPUFreq driver.
 		 */
 		if (!pending) {
-			pcpu->last_evaluated_jiffy = get_jiffies_64();
-			cpufreq_interactive_timer_resched(smp_processor_id());
+			cpufreq_interactive_timer_resched(pcpu);
+
+			now = ktime_to_us(ktime_get());
+			if ((pcpu->policy->cur == pcpu->policy->max) &&
+				(now - pcpu->hispeed_validate_time) >
+							MIN_BUSY_TIME) {
+				pcpu->floor_validate_time = now;
+			}
+
 		}
 	}
 
@@ -725,7 +766,7 @@ static void cpufreq_interactive_idle_end(void)
 
 	/* Arm the timer for 1-2 ticks later if not already. */
 	if (!timer_pending(&pcpu->cpu_timer)) {
-		cpufreq_interactive_timer_resched(smp_processor_id());
+		cpufreq_interactive_timer_resched(pcpu);
 	} else if (time_after_eq(jiffies, pcpu->cpu_timer.expires)) {
 		del_timer(&pcpu->cpu_timer);
 		del_timer(&pcpu->cpu_slack_timer);
@@ -1360,6 +1401,171 @@ static ssize_t store_io_is_busy(struct kobject *kobj,
 static struct global_attr io_is_busy_attr = __ATTR(io_is_busy, 0644,
 		show_io_is_busy, store_io_is_busy);
 
+<<<<<<< HEAD
+static ssize_t show_sync_freq(struct kobject *kobj,
+			struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", sync_freq);
+}
+
+static ssize_t store_sync_freq(struct kobject *kobj,
+			struct attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	sync_freq = val;
+	return count;
+}
+
+static struct global_attr sync_freq_attr = __ATTR(sync_freq, 0644,
+		show_sync_freq, store_sync_freq);
+
+static ssize_t show_up_threshold_any_cpu_load(struct kobject *kobj,
+			struct attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n", up_threshold_any_cpu_load);
+}
+
+static ssize_t store_up_threshold_any_cpu_load(struct kobject *kobj,
+			struct attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	up_threshold_any_cpu_load = val;
+	return count;
+}
+
+static struct global_attr up_threshold_any_cpu_load_attr =
+		__ATTR(up_threshold_any_cpu_load, 0644,
+		show_up_threshold_any_cpu_load,
+				store_up_threshold_any_cpu_load);
+
+static ssize_t show_up_threshold_any_cpu_freq(struct kobject *kobj,
+			struct attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n", up_threshold_any_cpu_freq);
+}
+
+static ssize_t store_up_threshold_any_cpu_freq(struct kobject *kobj,
+			struct attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	up_threshold_any_cpu_freq = val;
+	return count;
+}
+
+static struct global_attr up_threshold_any_cpu_freq_attr =
+		__ATTR(up_threshold_any_cpu_freq, 0644,
+		show_up_threshold_any_cpu_freq,
+				store_up_threshold_any_cpu_freq);
+
+#ifdef CONFIG_MODE_AUTO_CHANGE
+#define index(obj_name, obj_attr)					\
+static ssize_t show_##obj_name(struct kobject *kobj,			\
+                              struct attribute *attr, char *buf)	\
+{									\
+        return sprintf(buf, "%u\n", obj_name);				\
+}									\
+									\
+static ssize_t store_##obj_name(struct kobject *kobj,			\
+                               struct attribute *attr, const char *buf,	\
+                               size_t count)				\
+{									\
+        int ret;							\
+        long unsigned int val;						\
+									\
+        ret = strict_strtoul(buf, 0, &val);				\
+        if (ret < 0)							\
+                return ret;						\
+									\
+	val &= MULTI_MODE | SINGLE_MODE | NO_MODE;			\
+        obj_name = val;							\
+        return count;							\
+}									\
+									\
+static struct global_attr obj_attr = __ATTR(obj_name, 0644,		\
+                show_##obj_name, store_##obj_name);			\
+
+index(mode, mode_attr);
+index(enforced_mode, enforced_mode_attr);
+index(param_index, param_index_attr);
+
+#define load(obj_name, obj_attr)					\
+static ssize_t show_##obj_name(struct kobject *kobj,			\
+                              struct attribute *attr, char *buf)	\
+{									\
+        return sprintf(buf, "%u\n", obj_name);				\
+}									\
+									\
+static ssize_t store_##obj_name(struct kobject *kobj,			\
+                               struct attribute *attr, const char *buf,	\
+                               size_t count)				\
+{									\
+        int ret;							\
+        long unsigned int val;						\
+									\
+        ret = strict_strtoul(buf, 0, &val);				\
+        if (ret < 0)							\
+                return ret;						\
+									\
+        obj_name = val;							\
+        return count;							\
+}									\
+									\
+static struct global_attr obj_attr = __ATTR(obj_name, 0644,		\
+                show_##obj_name, store_##obj_name);			\
+
+load(multi_enter_load, multi_enter_load_attr);
+load(multi_exit_load, multi_exit_load_attr);
+load(single_enter_load, single_enter_load_attr);
+load(single_exit_load, single_exit_load_attr);
+
+#define time(obj_name, obj_attr)					\
+static ssize_t show_##obj_name(struct kobject *kobj,			\
+                              struct attribute *attr, char *buf)	\
+{									\
+        return sprintf(buf, "%lu\n", obj_name);				\
+}									\
+									\
+static ssize_t store_##obj_name(struct kobject *kobj,			\
+                               struct attribute *attr, const char *buf,	\
+                               size_t count)				\
+{									\
+        int ret;							\
+        unsigned long val;						\
+									\
+        ret = strict_strtoul(buf, 0, &val);				\
+        if (ret < 0)							\
+                return ret;						\
+									\
+        obj_name = val;							\
+        return count;							\
+}									\
+									\
+static struct global_attr obj_attr = __ATTR(obj_name, 0644,		\
+                show_##obj_name, store_##obj_name);			\
+
+time(multi_enter_time, multi_enter_time_attr);
+time(multi_exit_time, multi_exit_time_attr);
+time(single_enter_time, single_enter_time_attr);
+time(single_exit_time, single_exit_time_attr);
+
+#endif
+=======
+>>>>>>> 69316b1... cpufreq: interactive: Revert sync freq feature
 static struct attribute *interactive_attributes[] = {
 	&target_loads_attr.attr,
 	&above_hispeed_delay_attr.attr,
@@ -1373,6 +1579,25 @@ static struct attribute *interactive_attributes[] = {
 	&boostpulse_duration.attr,
 	&io_is_busy_attr.attr,
 	&sampling_down_factor_attr.attr,
+<<<<<<< HEAD
+	&sync_freq_attr.attr,
+	&up_threshold_any_cpu_load_attr.attr,
+	&up_threshold_any_cpu_freq_attr.attr,
+#ifdef CONFIG_MODE_AUTO_CHANGE
+	&mode_attr.attr,
+	&enforced_mode_attr.attr,
+	&param_index_attr.attr,
+	&multi_enter_load_attr.attr,
+	&multi_exit_load_attr.attr,
+	&single_enter_load_attr.attr,
+	&single_exit_load_attr.attr,
+	&multi_enter_time_attr.attr,
+	&multi_exit_time_attr.attr,
+	&single_enter_time_attr.attr,
+	&single_exit_time_attr.attr,
+#endif
+=======
+>>>>>>> 69316b1... cpufreq: interactive: Revert sync freq feature
 	NULL,
 };
 
@@ -1553,7 +1778,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 				down_write(&pcpu->enable_sem);
 				del_timer_sync(&pcpu->cpu_timer);
 				del_timer_sync(&pcpu->cpu_slack_timer);
-				cpufreq_interactive_timer_resched(j);
+				cpufreq_interactive_timer_start(j);
 				up_write(&pcpu->enable_sem);
 			}
 
