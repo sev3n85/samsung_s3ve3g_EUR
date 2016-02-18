@@ -78,6 +78,9 @@ static unsigned int hispeed_freq;
 #define DEFAULT_GO_HISPEED_LOAD 99
 static unsigned long go_hispeed_load = DEFAULT_GO_HISPEED_LOAD;
 
+/* Sampling down factor to be applied to min_sample_time at max freq */
+static unsigned int sampling_down_factor;
+
 /* Target load.  Lower values result in higher CPU speeds. */
 #define DEFAULT_TARGET_LOAD 90
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
@@ -96,6 +99,9 @@ static unsigned long min_sample_time = DEFAULT_MIN_SAMPLE_TIME;
  */
 #define DEFAULT_TIMER_RATE (20 * USEC_PER_MSEC)
 static unsigned long timer_rate = DEFAULT_TIMER_RATE;
+
+/* Busy SDF parameters*/
+#define MIN_BUSY_TIME (100 * USEC_PER_MSEC)
 
 /*
  * Wait this long before raising speed above hispeed, by default a single
@@ -1101,6 +1107,44 @@ static ssize_t store_hispeed_freq(struct kobject *kobj,
 static struct global_attr hispeed_freq_attr = __ATTR(hispeed_freq, 0644,
 		show_hispeed_freq, store_hispeed_freq);
 
+static ssize_t show_sampling_down_factor(struct kobject *kobj,
+				struct attribute *attr, char *buf)
+{
+#ifdef CONFIG_MODE_AUTO_CHANGE
+	return sprintf(buf, "%u\n", sampling_down_factor_set[param_index]);
+#else
+	return sprintf(buf, "%u\n", sampling_down_factor);
+#endif
+}
+
+static ssize_t store_sampling_down_factor(struct kobject *kobj,
+				struct attribute *attr, const char *buf,
+				size_t count)
+{
+	int ret;
+	long unsigned int val;
+#ifdef CONFIG_MODE_AUTO_CHANGE
+	unsigned long flags2;
+#endif
+	ret = strict_strtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+#ifdef CONFIG_MODE_AUTO_CHANGE
+	spin_lock_irqsave(&mode_lock, flags2);
+	sampling_down_factor_set[param_index] = val;
+	if (cur_param_index == param_index)
+		sampling_down_factor = val;
+	spin_unlock_irqrestore(&mode_lock, flags2);
+#else
+	sampling_down_factor = val;
+#endif
+	return count;
+}
+
+static struct global_attr sampling_down_factor_attr =
+				__ATTR(sampling_down_factor, 0644,
+		show_sampling_down_factor, store_sampling_down_factor);
+
 static ssize_t show_go_hispeed_load(struct kobject *kobj,
 				     struct attribute *attr, char *buf)
 {
@@ -1620,4 +1664,3 @@ MODULE_AUTHOR("Mike Chan <mike@android.com>");
 MODULE_DESCRIPTION("'cpufreq_interactive' - A cpufreq governor for "
 	"Latency sensitive workloads");
 MODULE_LICENSE("GPL");
-
