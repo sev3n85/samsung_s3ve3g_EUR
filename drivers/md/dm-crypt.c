@@ -1250,7 +1250,7 @@ static void crypt_encode_key(char *hex, u8 *key, unsigned int size)
 	}
 }
 
-static void crypt_free_tfms(struct crypt_config *cc, int cpu)
+static void crypt_free_tfms(struct crypt_config *cc)
 {
 	unsigned i;
 
