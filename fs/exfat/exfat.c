@@ -1650,7 +1650,7 @@ INT32 ffsRemoveEntry(struct inode *inode, FILE_ID_T *fid)
 
 	remove_file(inode, &dir, dentry);
 
-	fid->dir.dir = DIR_DELETED;
+	fid->dir.dir = DIR_DELETED
 
 #if (DELAYED_SYNC == 0)
 	fs_sync(sb, 0);
@@ -1663,6 +1663,43 @@ INT32 ffsRemoveEntry(struct inode *inode, FILE_ID_T *fid)
 	return FFS_SUCCESS;
 }
 
+INT32 ffsRemoveEntry(struct inode *inode, FILE_ID_T *fid)
+{
+	INT32 dentry;
+	CHAIN_T dir;
+	DENTRY_T *ep;
+	struct super_block *sb = inode->i_sb;
+	FS_INFO_T *p_fs = &(EXFAT_SB(sb)->fs_info);
+
+	dir.dir = fid->dir.dir;
+	dir.size = fid->dir.size;
+	dir.flags = fid->dir.flags;
+
+	dentry = fid->entry;
+
+	ep = get_entry_in_dir(sb, &dir, dentry, NULL);
+	if (!ep)
+		return FFS_MEDIAERR;
+
+	if (p_fs->fs_func->get_entry_attr(ep) & ATTR_READONLY)
+		return FFS_PERMISSIONERR;
+
+	fs_set_vol_flags(sb, VOL_DIRTY);
+
+	remove_file(inode, &dir, dentry);
+
+	fid->dir.dir = DIR_DELETED;
+
+#if (DELAYED_SYNC == 0)
+	fs_sync(sb, 0);
+	fs_set_vol_flags(sb, VOL_CLEAN);
+#endif
+
+	if (p_fs->dev_ejected)
+		return FFS_MEDIAERR;
+
+	return FFS_SUCCESS;
+}
 
 INT32 fs_init(void)
 {

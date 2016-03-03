@@ -272,7 +272,6 @@ int ping_init_sock(struct sock *sk)
 
 		count -= cp_count;
 	}
-
 	ret = -EACCES;
 
 out_release_group:
