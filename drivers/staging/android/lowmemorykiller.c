@@ -166,9 +166,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	static DEFINE_RATELIMIT_STATE(lmk_rs, DEFAULT_RATELIMIT_INTERVAL, 1);
 #endif
 	struct reclaim_state *reclaim_state = current->reclaim_state;
-
-	unsigned long nr_cma_free;
-	struct reclaim_state *reclaim_state = current->reclaim_state;
 #if defined(CONFIG_CMA_PAGE_COUNTING)
 	unsigned long nr_cma_inactive_file;
 	unsigned long nr_cma_active_file;
