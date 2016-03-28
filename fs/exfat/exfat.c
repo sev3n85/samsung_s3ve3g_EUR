@@ -1663,6 +1663,7 @@ INT32 ffsRemoveEntry(struct inode *inode, FILE_ID_T *fid)
 	return FFS_SUCCESS;
 }
 
+
 INT32 fs_init(void)
 {
 	if (sizeof(DENTRY_T) != DENTRY_SIZE) {

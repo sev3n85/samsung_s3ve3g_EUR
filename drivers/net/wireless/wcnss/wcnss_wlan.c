@@ -140,10 +140,6 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define WCNSS_TSTBUS_CTRL_WRFIFO	(0x04 << 1)
 #define WCNSS_TSTBUS_CTRL_RDFIFO	(0x05 << 1)
 #define WCNSS_TSTBUS_CTRL_CTRL		(0x07 << 1)
-//#define WCNSS_TSTBUS_CTRL_AXIM_CFG0	(0x00 << 6)
-//#define WCNSS_TSTBUS_CTRL_AXIM_CFG1	(0x01 << 6)
-//#define WCNSS_TSTBUS_CTRL_CTRL_CFG0	(0x00 << 12)
-//#define WCNSS_TSTBUS_CTRL_CTRL_CFG1	(0x01 << 12)
 #define WCNSS_TSTBUS_CTRL_AXIM_CFG0	(0x00 << 8)
 #define WCNSS_TSTBUS_CTRL_AXIM_CFG1	(0x01 << 8)
 #define WCNSS_TSTBUS_CTRL_CTRL_CFG0	(0x00 << 28)
@@ -725,24 +721,21 @@ void wcnss_pronto_log_debug_regs(void)
 	writel_relaxed(reg, tst_ctrl_addr);
 	reg = readl_relaxed(tst_addr);
 	if (!(reg & A2XB_FIFO_EMPTY)) {
-	wcnss_pronto_is_a2xb_bus_stall(tst_addr,
-			A2XB_READ_FIFO_FILL_MASK, "Read");
+		wcnss_pronto_is_a2xb_bus_stall(tst_addr,
+			       A2XB_READ_FIFO_FILL_MASK, "Read");
 	} else {
-		pr_err("%s:  Read data FIFO testbus %08x\n",__func__, reg);
+		pr_err("Read data FIFO testbus %08x\n", reg);
 	}
-
 	/*  command FIFO */
 	reg = 0;
 	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_CMDFIFO;
 	writel_relaxed(reg, tst_ctrl_addr);
 	reg = readl_relaxed(tst_addr);
-
 	if (!(reg & A2XB_FIFO_EMPTY)) {
 		wcnss_pronto_is_a2xb_bus_stall(tst_addr,
 			       A2XB_CMD_FIFO_FILL_MASK, "Cmd");
 	} else {
-		pr_err("%s:  Command FIFO testbus %08x\n",
-					__func__, reg);
+		pr_err("Command FIFO testbus %08x\n", reg);
 	}
 
 
@@ -755,8 +748,7 @@ void wcnss_pronto_log_debug_regs(void)
 		wcnss_pronto_is_a2xb_bus_stall(tst_addr,
 				A2XB_WRITE_FIFO_FILL_MASK, "Write");
 	} else {
-		pr_err("%s:  Rrite data FIFO testbus %08x\n",
-				__func__, reg);
+		pr_err("Write data FIFO testbus %08x\n", reg);
 	}
 
 	/*   AXIM SEL CFG0 */
